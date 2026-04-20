@@ -1,0 +1,52 @@
+/* Custom styles for Smart Medicine Box */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.display-4 {
+    color: #28a745;
+}
+
+.lead {
+    color: #6c757d;
+}
+
+section#home {
+    background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+    color: white;
+}
+
+section#home .card {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+}
+
+section#home h2 {
+    color: white;
+}
+
+section.bg-light {
+    background-color: #f8f9fa !important;
+}
+
+section h2 {
+    color: #28a745;
+}
+}

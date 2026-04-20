@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Medicine Box</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="https://via.placeholder.com/30" alt="Logo" width="30" height="30" class="d-inline-block align-text-top me-2">
+                Smart Medicine Box
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#home">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#add-medicine">Add Medicine</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#reminders">Reminders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#history">History</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#admin">Admin/Login</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Home Page Content -->
+    <section id="home" class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-8 mx-auto text-center">
+                    <h1 class="display-4 mb-4">Welcome to Smart Medicine Box</h1>
+                    <p class="lead mb-5">An innovative IoT-based medicine box designed to help you manage your medications efficiently and safely.</p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Automated Reminders</h5>
+                            <p class="card-text">Receive timely notifications for your medication schedules via app or SMS.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Inventory Tracking</h5>
+                            <p class="card-text">Keep track of your medicine stock levels and get alerts when supplies are low.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Secure Access</h5>
+                            <p class="card-text">Biometric or PIN-based access to ensure only authorized users can dispense medications.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-5">
+                <div class="col-lg-6 mx-auto text-center">
+                    <h2>About Our IoT-Based Medicine Box</h2>
+                    <p>The Smart Medicine Box leverages Internet of Things (IoT) technology to revolutionize medication management. It features smart dispensing, real-time monitoring, and seamless integration with mobile apps for caregivers and healthcare providers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Add Medicine Section -->
+    <section id="add-medicine" class="py-5 bg-light">
+        <div class="container">
+            <h2 class="text-center mb-4">Add Medicine</h2>
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <form id="add-medicine-form">
+                        <div class="mb-3">
+                            <label for="medicine-name" class="form-label">Medicine Name</label>
+                            <input type="text" class="form-control" id="medicine-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="dosage" class="form-label">Dosage</label>
+                            <input type="text" class="form-control" id="dosage" placeholder="e.g., 500mg" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="frequency" class="form-label">Frequency (times per day)</label>
+                            <input type="number" class="form-control" id="frequency" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="times" class="form-label">Times (comma-separated, e.g., 08:00,14:00,20:00)</label>
+                            <input type="text" class="form-control" id="times" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="start-date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start-date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="duration" class="form-label">Duration (days)</label>
+                            <input type="number" class="form-control" id="duration" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Medicine</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reminders Section -->
+    <section id="reminders" class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Reminders</h2>
+            <div id="reminders-list" class="row">
+                <!-- Reminders will be populated here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- History Section -->
+    <section id="history" class="py-5 bg-light">
+        <div class="container">
+            <h2 class="text-center mb-4">History</h2>
+            <div id="history-list" class="list-group">
+                <!-- History will be populated here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Admin/Login Section -->
+    <section id="admin" class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Admin/Login</h2>
+            <div id="login-form" class="row justify-content-center">
+                <div class="col-md-4 text-center">
+                    <p>Sign in with your Google account to access the admin panel.</p>
+                    <a href="/auth/google" class="btn btn-outline-primary btn-lg">
+                        <img src="https://www.google.com/favicon.ico" alt="Google" width="20" height="20" class="me-2">
+                        Sign in with Google
+                    </a>
+                </div>
+            </div>
+            <div id="admin-panel" class="d-none">
+                <h3 class="text-center mt-4">Admin Panel</h3>
+                <p id="admin-email" class="text-center text-muted mb-4"></p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>All Medicines</h4>
+                        <ul id="admin-medicines-list" class="list-group">
+                            <!-- Medicines will be listed here -->
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>All History</h4>
+                        <ul id="admin-history-list" class="list-group">
+                            <!-- History will be listed here -->
+                        </ul>
+                    </div>
+                </div>
+                <a id="logout-btn" href="/logout" class="btn btn-danger mt-3">Logout</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+</body>
+</html>
