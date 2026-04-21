@@ -4,10 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Medicine Box</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── Auth Modal Styles ── */
+        .auth-tabs .nav-link {
+            color: #198754;
+            font-weight: 600;
+        }
+        .auth-tabs .nav-link.active {
+            background-color: #198754;
+            color: #fff;
+            border-color: #198754;
+        }
+        .auth-pane { display: none; }
+        .auth-pane.active { display: block; }
+
+        #auth-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #user-greeting {
+            font-weight: 600;
+            color: #198754;
+        }
+        .password-wrapper {
+            position: relative;
+        }
+        .toggle-pw {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 1rem;
+        }
+        .form-error {
+            color: #dc3545;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+        .form-success {
+            color: #198754;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+    </style>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -17,32 +63,22 @@
                 <img src="https://via.placeholder.com/30" alt="Logo" width="30" height="30" class="d-inline-block align-text-top me-2">
                 Smart Medicine Box
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#home">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#add-medicine">Add Medicine</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#reminders">Reminders</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#history">History</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#admin">Admin/Login</a>
-                    </li>
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a class="nav-link active" href="#home">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#add-medicine">Add Medicine</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#reminders">Reminders</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#history">History</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#admin">Admin/Login</a></li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- Home Page Content -->
+    <!-- Home Section -->
     <section id="home" class="py-5">
         <div class="container">
             <div class="row">
@@ -128,9 +164,7 @@
     <section id="reminders" class="py-5">
         <div class="container">
             <h2 class="text-center mb-4">Reminders</h2>
-            <div id="reminders-list" class="row">
-                <!-- Reminders will be populated here -->
-            </div>
+            <div id="reminders-list" class="row"></div>
         </div>
     </section>
 
@@ -138,43 +172,84 @@
     <section id="history" class="py-5 bg-light">
         <div class="container">
             <h2 class="text-center mb-4">History</h2>
-            <div id="history-list" class="list-group">
-                <!-- History will be populated here -->
-            </div>
+            <div id="history-list" class="list-group"></div>
         </div>
     </section>
 
-    <!-- Admin/Login Section -->
+    <!-- Admin / Login Section -->
     <section id="admin" class="py-5">
         <div class="container">
-            <h2 class="text-center mb-4">Admin/Login</h2>
+            <h2 class="text-center mb-4">Admin / Login</h2>
+
+            <!-- ── NOT LOGGED IN: Show Login + Register tabs ── -->
             <div id="login-form" class="row justify-content-center">
-                <div class="col-md-4 text-center">
-                    <p>Sign in with your Google account to access the admin panel.</p>
-                    <a href="/auth/google" class="btn btn-outline-primary btn-lg">
-                        <img src="https://www.google.com/favicon.ico" alt="Google" width="20" height="20" class="me-2">
-                        Sign in with Google
-                    </a>
+                <div class="col-md-5">
+                    <ul class="nav nav-tabs auth-tabs mb-4" id="authTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active" onclick="switchTab('login')">Login</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" onclick="switchTab('register')">Register</button>
+                        </li>
+                    </ul>
+
+                    <!-- Login Pane -->
+                    <div id="pane-login" class="auth-pane active">
+                        <div class="mb-3">
+                            <label class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="login-email" placeholder="you@example.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="login-password" placeholder="••••••••">
+                                <button class="toggle-pw" type="button" onclick="togglePw('login-password', this)">👁</button>
+                            </div>
+                        </div>
+                        <div id="login-msg"></div>
+                        <button class="btn btn-success w-100 mt-2" onclick="handleLogin()">Login</button>
+                    </div>
+
+                    <!-- Register Pane -->
+                    <div id="pane-register" class="auth-pane">
+                        <div class="mb-3">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="reg-name" placeholder="John Doe">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="reg-email" placeholder="you@example.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password <small class="text-muted">(min 6 characters)</small></label>
+                            <div class="password-wrapper">
+                                <input type="password" class="form-control" id="reg-password" placeholder="••••••••">
+                                <button class="toggle-pw" type="button" onclick="togglePw('reg-password', this)">👁</button>
+                            </div>
+                        </div>
+                        <div id="reg-msg"></div>
+                        <button class="btn btn-success w-100 mt-2" onclick="handleRegister()">Create Account</button>
+                    </div>
                 </div>
             </div>
+
+            <!-- ── LOGGED IN: Show Admin Panel ── -->
             <div id="admin-panel" class="d-none">
-                <h3 class="text-center mt-4">Admin Panel</h3>
-                <p id="admin-email" class="text-center text-muted mb-4"></p>
-                <div class="row">
+                <div class="text-center mb-4" id="auth-status">
+                    <span id="user-greeting"></span>
+                    <button class="btn btn-outline-danger btn-sm" onclick="handleLogout()">Logout</button>
+                </div>
+                <h3 class="text-center mt-2">Admin Panel</h3>
+                <div class="row mt-3">
                     <div class="col-md-6">
                         <h4>All Medicines</h4>
-                        <ul id="admin-medicines-list" class="list-group">
-                            <!-- Medicines will be listed here -->
-                        </ul>
+                        <ul id="admin-medicines-list" class="list-group"></ul>
                     </div>
                     <div class="col-md-6">
                         <h4>All History</h4>
-                        <ul id="admin-history-list" class="list-group">
-                            <!-- History will be listed here -->
-                        </ul>
+                        <ul id="admin-history-list" class="list-group"></ul>
                     </div>
                 </div>
-                <a id="logout-btn" href="/logout" class="btn btn-danger mt-3">Logout</a>
             </div>
         </div>
     </section>
@@ -183,5 +258,134 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="script.js"></script>
+
+    <script>
+        // ── Tab switching ──────────────────────────────────────
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-pane').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.auth-tabs .nav-link').forEach(b => b.classList.remove('active'));
+            document.getElementById('pane-' + tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // ── Show/Hide password ────────────────────────────────
+        function togglePw(inputId, btn) {
+            const inp = document.getElementById(inputId);
+            if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+            else { inp.type = 'password'; btn.textContent = '👁'; }
+        }
+
+        // ── Message helper ────────────────────────────────────
+        function showMsg(id, msg, isError) {
+            const el = document.getElementById(id);
+            el.className = isError ? 'form-error' : 'form-success';
+            el.textContent = msg;
+        }
+
+        // ── Token helpers ─────────────────────────────────────
+        function getToken() { return localStorage.getItem('smb_token'); }
+        function saveToken(token, user) {
+            localStorage.setItem('smb_token', token);
+            localStorage.setItem('smb_user', JSON.stringify(user));
+        }
+        function clearToken() {
+            localStorage.removeItem('smb_token');
+            localStorage.removeItem('smb_user');
+        }
+
+        // ── Login ─────────────────────────────────────────────
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!email || !password) { showMsg('login-msg', 'Please fill in all fields.', true); return; }
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { showMsg('login-msg', data.error, true); return; }
+                saveToken(data.token, data.user);
+                showLoggedIn(data.user);
+            } catch (e) {
+                showMsg('login-msg', 'Server error. Please try again.', true);
+            }
+        }
+
+        // ── Register ──────────────────────────────────────────
+        async function handleRegister() {
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            if (!name || !email || !password) { showMsg('reg-msg', 'Please fill in all fields.', true); return; }
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { showMsg('reg-msg', data.error, true); return; }
+                saveToken(data.token, data.user);
+                showLoggedIn(data.user);
+            } catch (e) {
+                showMsg('reg-msg', 'Server error. Please try again.', true);
+            }
+        }
+
+        // ── Logout ────────────────────────────────────────────
+        function handleLogout() {
+            clearToken();
+            document.getElementById('admin-panel').classList.add('d-none');
+            document.getElementById('login-form').classList.remove('d-none');
+        }
+
+        // ── Show admin panel after login ───────────────────────
+        function showLoggedIn(user) {
+            document.getElementById('login-form').classList.add('d-none');
+            document.getElementById('admin-panel').classList.remove('d-none');
+            document.getElementById('user-greeting').textContent = `Welcome, ${user.name} (${user.email})`;
+            loadAdminData();
+        }
+
+        // ── Load admin data ───────────────────────────────────
+        async function loadAdminData() {
+            const token = getToken();
+            const headers = { 'Authorization': 'Bearer ' + token };
+
+            const [medRes, histRes] = await Promise.all([
+                fetch('/api/medicines', { headers }),
+                fetch('/api/history', { headers })
+            ]);
+
+            const medicines = await medRes.json();
+            const history = await histRes.json();
+
+            const medList = document.getElementById('admin-medicines-list');
+            medList.innerHTML = medicines.length
+                ? medicines.map(m => `<li class="list-group-item">${m.name} — ${m.dosage}</li>`).join('')
+                : '<li class="list-group-item text-muted">No medicines added yet.</li>';
+
+            const histList = document.getElementById('admin-history-list');
+            histList.innerHTML = history.length
+                ? [...history].reverse().map(h => `<li class="list-group-item">${h.action} <small class="text-muted">(${new Date(h.timestamp).toLocaleString()})</small></li>`).join('')
+                : '<li class="list-group-item text-muted">No history yet.</li>';
+        }
+
+        // ── Auto-login if token exists ────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            const token = getToken();
+            const user = JSON.parse(localStorage.getItem('smb_user') || 'null');
+            if (token && user) {
+                // Verify token is still valid
+                fetch('/api/user', { headers: { 'Authorization': 'Bearer ' + token } })
+                    .then(r => r.ok ? showLoggedIn(user) : clearToken())
+                    .catch(() => clearToken());
+            }
+        });
+    </script>
 </body>
 </html>
