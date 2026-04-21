@@ -88,8 +88,8 @@ async function loadData() {
 document.getElementById('add-medicine-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
-    if (!userEmail) {
-        alert('Please sign in with Google before adding medicine.');
+    if (!isLoggedIn()) {
+    alert('Please sign in before adding medicine.');
         return;
     }
 
