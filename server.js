@@ -2,24 +2,29 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
+const JWT_SECRET = process.env.JWT_SECRET || 'smartmedicinebox_jwt_secret';
+
+// ─── Data Layer ───────────────────────────────────────────────────────────────
 
 let data = {
   medicines: [],
-  history: []
+  history: [],
+  users: []        // NEW: stores registered users
 };
 
 async function loadData() {
   try {
     const content = await fs.readFile(DATA_FILE, 'utf8');
     data = JSON.parse(content);
+    if (!data.users) data.users = [];   // backward compat
   } catch (err) {
     if (err.code === 'ENOENT') {
       await saveData();
@@ -33,84 +38,118 @@ async function saveData() {
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
 app.use(cors());
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || 'smartmedicineboxsecret',
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    secure: false
-  }
+  cookie: { secure: false }
 }));
-app.use(passport.initialize());
-app.use(passport.session());
 
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID',
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'YOUR_GOOGLE_CLIENT_SECRET',
-  callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback'
-}, (accessToken, refreshToken, profile, done) => {
-  const email = profile.emails && profile.emails[0] && profile.emails[0].value;
-  if (!email) {
-    return done(new Error('Google account has no email.'));
-  }
-  done(null, {
-    id: profile.id,
-    email,
-    displayName: profile.displayName
-  });
-}));
+// ─── JWT Auth Middleware ───────────────────────────────────────────────────────
 
 function authenticate(req, res, next) {
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    return next();
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided.' });
   }
-  return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Forbidden: Invalid or expired token.' });
+  }
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function recordHistory(action) {
-  const entry = {
-    action,
-    timestamp: new Date().toISOString()
-  };
+  const entry = { action, timestamp: new Date().toISOString() };
   data.history.push(entry);
   saveData().catch(console.error);
 }
 
-app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+// ─── Auth Routes ──────────────────────────────────────────────────────────────
 
-app.get('/auth/google/callback', passport.authenticate('google', {
-  failureRedirect: '/'
-}), (req, res) => {
-  res.redirect('/');
-});
+// REGISTER
+app.post('/api/register', async (req, res) => {
+  const { name, email, password } = req.body;
 
-app.get('/logout', (req, res, next) => {
-  req.logout(err => {
-    if (err) {
-      return next(err);
-    }
-    req.session.destroy(() => {
-      res.redirect('/');
-    });
-  });
-});
-
-app.get('/api/user', (req, res) => {
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    return res.json({ email: req.user.email, displayName: req.user.displayName });
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Name, email, and password are required.' });
   }
-  return res.status(401).json({ error: 'Unauthorized' });
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
+  await loadData();
+  const existing = data.users.find(u => u.email === email.toLowerCase());
+  if (existing) {
+    return res.status(409).json({ error: 'An account with this email already exists.' });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = {
+    id: Date.now().toString(),
+    name,
+    email: email.toLowerCase(),
+    password: hashedPassword,
+    createdAt: new Date().toISOString()
+  };
+
+  data.users.push(user);
+  await saveData();
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, name: user.name },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email } });
 });
+
+// LOGIN
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  await loadData();
+  const user = data.users.find(u => u.email === email.toLowerCase());
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) {
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, name: user.name },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+});
+
+// GET CURRENT USER (verify token)
+app.get('/api/user', authenticate, (req, res) => {
+  res.json({ id: req.user.id, email: req.user.email, name: req.user.name });
+});
+
+// ─── Medicine Routes ──────────────────────────────────────────────────────────
 
 app.get('/api/medicines', async (req, res) => {
   await loadData();
@@ -125,12 +164,7 @@ app.post('/api/medicines', authenticate, async (req, res) => {
 
   const medicine = {
     id: Date.now(),
-    name,
-    dosage,
-    frequency,
-    times,
-    startDate,
-    duration,
+    name, dosage, frequency, times, startDate, duration,
     addedAt: new Date().toISOString()
   };
 
@@ -155,6 +189,8 @@ app.delete('/api/medicines/:id', authenticate, async (req, res) => {
   res.json({ success: true });
 });
 
+// ─── History Routes ───────────────────────────────────────────────────────────
+
 app.get('/api/history', async (req, res) => {
   await loadData();
   res.json(data.history);
@@ -162,20 +198,19 @@ app.get('/api/history', async (req, res) => {
 
 app.post('/api/history', async (req, res) => {
   const { action } = req.body;
-  if (!action) {
-    return res.status(400).json({ error: 'History action is required.' });
-  }
+  if (!action) return res.status(400).json({ error: 'History action is required.' });
 
-  const entry = {
-    action,
-    timestamp: new Date().toISOString()
-  };
+  const entry = { action, timestamp: new Date().toISOString() };
   data.history.push(entry);
   await saveData();
   res.status(201).json(entry);
 });
 
+// ─── Static Files ─────────────────────────────────────────────────────────────
+
 app.use(express.static(path.join(__dirname)));
+
+// ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, async () => {
   await loadData();
