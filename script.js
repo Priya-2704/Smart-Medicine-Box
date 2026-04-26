@@ -1,30 +1,24 @@
-// Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth'
-            });
+            target.scrollIntoView({ behavior: 'smooth' });
         }
     });
 });
 
-// Add active class to nav links on scroll (basic implementation)
-window.addEventListener('scroll', function() {
+// Add active class to nav links on scroll
+window.addEventListener('scroll', function () {
     const sections = document.querySelectorAll('section');
     const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
-
     let current = '';
-
     sections.forEach(section => {
         const sectionTop = section.offsetTop;
         if (pageYOffset >= sectionTop - 60) {
             current = section.getAttribute('id');
         }
     });
-
     navLinks.forEach(link => {
         link.classList.remove('active');
         if (link.getAttribute('href') === '#' + current) {
@@ -36,16 +30,29 @@ window.addEventListener('scroll', function() {
 const API_BASE = '/api';
 let medicines = [];
 let history = [];
-let userEmail = '';
 
+// ── Token helpers (kept in sync with index.html) ───────────────────────────
+function getToken() {
+    return localStorage.getItem('smb_token');
+}
+
+// ── isLoggedIn: checks whether a JWT token exists ─────────────────────────
+function isLoggedIn() {
+    return !!getToken();
+}
+
+// ── apiRequest: always attaches JWT Bearer token when available ────────────
 async function apiRequest(path, options = {}) {
+    const token = getToken();
+
     const response = await fetch(`${API_BASE}${path}`, {
-        credentials: 'include',
+        ...options,
         headers: {
             'Content-Type': 'application/json',
+            // ✅ FIX: attach Authorization header so server accepts the request
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
             ...(options.headers || {})
-        },
-        ...options
+        }
     });
 
     const text = await response.text();
@@ -58,17 +65,21 @@ async function apiRequest(path, options = {}) {
     return data;
 }
 
+// ── checkSession: validate JWT token via /api/user ────────────────────────
 async function checkSession() {
+    if (!isLoggedIn()) return false;
     try {
-        const user = await apiRequest('/user');
-        userEmail = user.email;
+        await apiRequest('/user');
         return true;
     } catch {
-        userEmail = '';
+        // Token invalid or expired — clear it
+        localStorage.removeItem('smb_token');
+        localStorage.removeItem('smb_user');
         return false;
     }
 }
 
+// ── loadData: fetch medicines and history ─────────────────────────────────
 async function loadData() {
     try {
         medicines = await apiRequest('/medicines');
@@ -84,12 +95,13 @@ async function loadData() {
     updateAdminPanel();
 }
 
-// Add Medicine Form
-document.getElementById('add-medicine-form').addEventListener('submit', async function(e) {
+// ── Add Medicine Form ──────────────────────────────────────────────────────
+document.getElementById('add-medicine-form').addEventListener('submit', async function (e) {
     e.preventDefault();
 
+    // ✅ FIX: use isLoggedIn() which is now properly defined
     if (!isLoggedIn()) {
-    alert('Please sign in before adding medicine.');
+        alert('Please sign in before adding a medicine.');
         return;
     }
 
@@ -116,11 +128,11 @@ document.getElementById('add-medicine-form').addEventListener('submit', async fu
         await loadData();
         alert('Medicine added successfully!');
     } catch (err) {
-        alert(err.message);
+        alert('Failed to add medicine: ' + err.message);
     }
 });
 
-// Update Reminders Display
+// ── Reminders Display ─────────────────────────────────────────────────────
 function updateReminders() {
     const remindersList = document.getElementById('reminders-list');
     remindersList.innerHTML = '';
@@ -142,7 +154,9 @@ function updateReminders() {
                             <h5 class="card-title">${medicine.name}</h5>
                             <p class="card-text">Dosage: ${medicine.dosage}</p>
                             <p class="card-text">Time: ${time}</p>
-                            <button class="btn btn-success take-medicine" data-medicine-id="${medicine.id}" data-time="${time}">Mark as Taken</button>
+                            <button class="btn btn-success take-medicine"
+                                data-medicine-id="${medicine.id}"
+                                data-time="${time}">Mark as Taken</button>
                         </div>
                     </div>
                 `;
@@ -156,7 +170,7 @@ function updateReminders() {
     }
 
     document.querySelectorAll('.take-medicine').forEach(btn => {
-        btn.addEventListener('click', async function() {
+        btn.addEventListener('click', async function () {
             const medicineId = parseInt(this.getAttribute('data-medicine-id'), 10);
             const time = this.getAttribute('data-time');
             const medicine = medicines.find(m => m.id === medicineId);
@@ -169,7 +183,7 @@ function updateReminders() {
     });
 }
 
-// Update History Display
+// ── History Display ───────────────────────────────────────────────────────
 function updateHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '';
@@ -186,7 +200,7 @@ function updateHistory() {
     }
 }
 
-// Add to History
+// ── Add to History ────────────────────────────────────────────────────────
 async function addToHistory(action) {
     try {
         await apiRequest('/history', {
@@ -198,86 +212,78 @@ async function addToHistory(action) {
     }
 }
 
-function updateAdminView() {
-    const loginForm = document.getElementById('login-form');
-    const adminPanel = document.getElementById('admin-panel');
-    const adminEmail = document.getElementById('admin-email');
-
-    if (userEmail) {
-        loginForm.classList.add('d-none');
-        adminPanel.classList.remove('d-none');
-        adminEmail.textContent = `Signed in as ${userEmail}`;
-    } else {
-        loginForm.classList.remove('d-none');
-        adminPanel.classList.add('d-none');
-        adminEmail.textContent = '';
-    }
-}
-
-// Update Admin Panel
+// ── Admin Panel ───────────────────────────────────────────────────────────
 function updateAdminPanel() {
-    if (!userEmail) return;
+    // ✅ FIX: check isLoggedIn() instead of userEmail (which no longer exists)
+    if (!isLoggedIn()) return;
 
     const adminMedicinesList = document.getElementById('admin-medicines-list');
     adminMedicinesList.innerHTML = '';
 
-    medicines.forEach(medicine => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item';
-        li.innerHTML = `
-            <strong>${medicine.name}</strong> - ${medicine.dosage} - ${medicine.frequency} times/day
-            <button class="btn btn-sm btn-danger float-end delete-medicine" data-id="${medicine.id}">Delete</button>
-        `;
-        adminMedicinesList.appendChild(li);
-    });
-
-    document.querySelectorAll('.delete-medicine').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const id = parseInt(this.getAttribute('data-id'), 10);
-            try {
-                await apiRequest(`/medicines/${id}`, { method: 'DELETE' });
-                await addToHistory(`Deleted medicine with ID ${id}`);
-                await loadData();
-            } catch (err) {
-                alert(err.message);
-            }
+    if (medicines.length === 0) {
+        adminMedicinesList.innerHTML = '<li class="list-group-item text-muted">No medicines added yet.</li>';
+    } else {
+        medicines.forEach(medicine => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.innerHTML = `
+                <span><strong>${medicine.name}</strong> — ${medicine.dosage} — ${medicine.frequency}×/day</span>
+                <button class="btn btn-sm btn-danger delete-medicine" data-id="${medicine.id}">Delete</button>
+            `;
+            adminMedicinesList.appendChild(li);
         });
-    });
+
+        document.querySelectorAll('.delete-medicine').forEach(btn => {
+            btn.addEventListener('click', async function () {
+                const id = parseInt(this.getAttribute('data-id'), 10);
+                try {
+                    await apiRequest(`/medicines/${id}`, { method: 'DELETE' });
+                    await addToHistory(`Deleted medicine with ID ${id}`);
+                    await loadData();
+                } catch (err) {
+                    alert('Delete failed: ' + err.message);
+                }
+            });
+        });
+    }
 
     const adminHistoryList = document.getElementById('admin-history-list');
     adminHistoryList.innerHTML = '';
 
-    history.slice(-20).reverse().forEach(entry => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item';
-        li.textContent = `${new Date(entry.timestamp).toLocaleString()}: ${entry.action}`;
-        adminHistoryList.appendChild(li);
-    });
+    if (history.length === 0) {
+        adminHistoryList.innerHTML = '<li class="list-group-item text-muted">No history yet.</li>';
+    } else {
+        history.slice(-20).reverse().forEach(entry => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.textContent = `${new Date(entry.timestamp).toLocaleString()}: ${entry.action}`;
+            adminHistoryList.appendChild(li);
+        });
+    }
 }
 
-// Request notification permission on page load
-document.addEventListener('DOMContentLoaded', async function() {
+// ── DOMContentLoaded ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async function () {
     if ('Notification' in window) {
         Notification.requestPermission();
     }
 
+    // checkSession validates the stored token; index.html handles UI show/hide
     await checkSession();
-    updateAdminView();
     await loadData();
     startReminderChecker();
 });
 
-// Start reminder checker
+// ── Reminder Checker ──────────────────────────────────────────────────────
 function startReminderChecker() {
-    setInterval(checkReminders, 60000); // Check every minute
+    setInterval(checkReminders, 60000);
 }
 
-// Check for reminders
 function checkReminders() {
     if (Notification.permission !== 'granted') return;
 
     const now = new Date();
-    const currentTime = now.getHours() * 100 + now.getMinutes(); // HHMM format
+    const currentTime = now.getHours() * 100 + now.getMinutes();
 
     medicines.forEach(medicine => {
         const start = new Date(medicine.startDate);
