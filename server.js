@@ -17,14 +17,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'smartmedicinebox_jwt_secret';
 let data = {
   medicines: [],
   history: [],
-  users: []        // NEW: stores registered users
+  users: []
 };
 
 async function loadData() {
   try {
     const content = await fs.readFile(DATA_FILE, 'utf8');
     data = JSON.parse(content);
-    if (!data.users) data.users = [];   // backward compat
+    if (!data.users) data.users = [];
   } catch (err) {
     if (err.code === 'ENOENT') {
       await saveData();
@@ -49,11 +49,11 @@ app.use(session({
   cookie: { secure: false }
 }));
 
-// ─── JWT Auth Middleware ───────────────────────────────────────────────────────
+// ─── JWT Auth Middleware ──────────────────────────────────────────────────────
 
 function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized: No token provided.' });
@@ -68,7 +68,7 @@ function authenticate(req, res, next) {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function recordHistory(action) {
   const entry = { action, timestamp: new Date().toISOString() };
@@ -78,22 +78,18 @@ function recordHistory(action) {
 
 // ─── Auth Routes ──────────────────────────────────────────────────────────────
 
-// REGISTER
 app.post('/api/register', async (req, res) => {
   const { name, email, password } = req.body;
 
-  if (!name || !email || !password) {
+  if (!name || !email || !password)
     return res.status(400).json({ error: 'Name, email, and password are required.' });
-  }
-  if (password.length < 6) {
+  if (password.length < 6)
     return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  }
 
   await loadData();
   const existing = data.users.find(u => u.email === email.toLowerCase());
-  if (existing) {
+  if (existing)
     return res.status(409).json({ error: 'An account with this email already exists.' });
-  }
 
   const hashedPassword = await bcrypt.hash(password, 12);
   const user = {
@@ -107,44 +103,27 @@ app.post('/api/register', async (req, res) => {
   data.users.push(user);
   await saveData();
 
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-
+  const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email } });
 });
 
-// LOGIN
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
+  if (!email || !password)
     return res.status(400).json({ error: 'Email and password are required.' });
-  }
 
   await loadData();
   const user = data.users.find(u => u.email === email.toLowerCase());
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
+  if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
 
   const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
+  if (!match) return res.status(401).json({ error: 'Invalid email or password.' });
 
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-
+  const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
 });
 
-// GET CURRENT USER (verify token)
 app.get('/api/user', authenticate, (req, res) => {
   res.json({ id: req.user.id, email: req.user.email, name: req.user.name });
 });
@@ -158,9 +137,8 @@ app.get('/api/medicines', async (req, res) => {
 
 app.post('/api/medicines', authenticate, async (req, res) => {
   const { name, dosage, frequency, times, startDate, duration } = req.body;
-  if (!name || !dosage || !frequency || !Array.isArray(times) || !times.length || !startDate || !duration) {
+  if (!name || !dosage || !frequency || !Array.isArray(times) || !times.length || !startDate || !duration)
     return res.status(400).json({ error: 'Missing required medicine fields.' });
-  }
 
   const medicine = {
     id: Date.now(),
@@ -178,9 +156,7 @@ app.post('/api/medicines', authenticate, async (req, res) => {
 app.delete('/api/medicines/:id', authenticate, async (req, res) => {
   const id = Number(req.params.id);
   const index = data.medicines.findIndex(item => item.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Medicine not found.' });
-  }
+  if (index === -1) return res.status(404).json({ error: 'Medicine not found.' });
 
   const [removed] = data.medicines.splice(index, 1);
   recordHistory(`Deleted medicine: ${removed.name}`);
@@ -204,6 +180,68 @@ app.post('/api/history', async (req, res) => {
   data.history.push(entry);
   await saveData();
   res.status(201).json(entry);
+});
+
+// ─── ESP32 Routes ─────────────────────────────────────────────────────────────
+// No auth required — ESP32 communicates over local network only.
+
+/**
+ * GET /api/esp32/check
+ *
+ * ESP32 polls this every 30 seconds.
+ * Matches current time (HH:MM) against your existing medicine `times` array.
+ * Also checks medicine is within its startDate + duration window.
+ *
+ * Response: { ring: true, medicineName: "Paracetamol", dosage: "500mg" }
+ *        or { ring: false, medicineName: "", dosage: "" }
+ */
+app.get('/api/esp32/check', async (req, res) => {
+  await loadData();
+
+  const now = new Date();
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  let matched = null;
+
+  for (const med of data.medicines) {
+    const start = new Date(med.startDate);
+    const end = new Date(start);
+    end.setDate(start.getDate() + Number(med.duration));
+
+    // Skip if outside active date range
+    if (now < start || now > end) continue;
+
+    // Check if current time (e.g. "08:00") is in this medicine's times array
+    if (med.times.includes(currentTime)) {
+      matched = med;
+      break;
+    }
+  }
+
+  if (matched) {
+    console.log(`🔔 [ESP32] Reminder: ${matched.name} (${matched.dosage}) at ${currentTime}`);
+    res.json({ ring: true, medicineName: matched.name, dosage: matched.dosage });
+  } else {
+    res.json({ ring: false, medicineName: '', dosage: '' });
+  }
+});
+
+/**
+ * POST /api/esp32/taken
+ *
+ * ESP32 calls this when the IR sensor detects medicine was taken.
+ * Body: { medicineName: "Paracetamol" }
+ *
+ * Saves to history so it appears automatically on your website's History section.
+ */
+app.post('/api/esp32/taken', async (req, res) => {
+  const { medicineName } = req.body;
+  const name = medicineName || 'Unknown Medicine';
+
+  recordHistory(`[ESP32] Medicine taken: ${name}`);
+  console.log(`✅ [ESP32] Medicine taken: ${name}`);
+
+  res.json({ success: true });
 });
 
 // ─── Static Files ─────────────────────────────────────────────────────────────
