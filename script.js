@@ -31,12 +31,11 @@ const API_BASE = '/api';
 let medicines = [];
 let history = [];
 
-// ── Token helpers (kept in sync with index.html) ───────────────────────────
+// ── Token helpers ──────────────────────────────────────────────────────────
 function getToken() {
     return localStorage.getItem('smb_token');
 }
 
-// ── isLoggedIn: checks whether a JWT token exists ─────────────────────────
 function isLoggedIn() {
     return !!getToken();
 }
@@ -49,7 +48,6 @@ async function apiRequest(path, options = {}) {
         ...options,
         headers: {
             'Content-Type': 'application/json',
-            // ✅ FIX: attach Authorization header so server accepts the request
             ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
             ...(options.headers || {})
         }
@@ -72,7 +70,6 @@ async function checkSession() {
         await apiRequest('/user');
         return true;
     } catch {
-        // Token invalid or expired — clear it
         localStorage.removeItem('smb_token');
         localStorage.removeItem('smb_user');
         return false;
@@ -99,7 +96,6 @@ async function loadData() {
 document.getElementById('add-medicine-form').addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    // ✅ FIX: use isLoggedIn() which is now properly defined
     if (!isLoggedIn()) {
         alert('Please sign in before adding a medicine.');
         return;
@@ -140,9 +136,10 @@ function updateReminders() {
     const now = new Date();
 
     medicines.forEach(medicine => {
-        const start = new Date(medicine.startDate);
+        // ✅ FIX: append T00:00:00 to force local midnight parsing (fixes IST/UTC offset bug)
+        const start = new Date(medicine.startDate + 'T00:00:00');
         const end = new Date(start);
-        end.setDate(start.getDate() + medicine.duration);
+        end.setDate(start.getDate() + Number(medicine.duration));
 
         if (now >= start && now <= end) {
             medicine.times.forEach(time => {
@@ -214,7 +211,6 @@ async function addToHistory(action) {
 
 // ── Admin Panel ───────────────────────────────────────────────────────────
 function updateAdminPanel() {
-    // ✅ FIX: check isLoggedIn() instead of userEmail (which no longer exists)
     if (!isLoggedIn()) return;
 
     const adminMedicinesList = document.getElementById('admin-medicines-list');
@@ -268,13 +264,12 @@ document.addEventListener('DOMContentLoaded', async function () {
         Notification.requestPermission();
     }
 
-    // checkSession validates the stored token; index.html handles UI show/hide
     await checkSession();
     await loadData();
     startReminderChecker();
 });
 
-// ── Reminder Checker ──────────────────────────────────────────────────────
+// ── Reminder Checker (browser notifications) ──────────────────────────────
 function startReminderChecker() {
     setInterval(checkReminders, 60000);
 }
@@ -283,17 +278,20 @@ function checkReminders() {
     if (Notification.permission !== 'granted') return;
 
     const now = new Date();
-    const currentTime = now.getHours() * 100 + now.getMinutes();
+    // ✅ FIX: use total minutes instead of hours*100+minutes for correct comparison
+    const currentTime = now.getHours() * 60 + now.getMinutes();
 
     medicines.forEach(medicine => {
-        const start = new Date(medicine.startDate);
+        // ✅ FIX: local midnight parsing
+        const start = new Date(medicine.startDate + 'T00:00:00');
         const end = new Date(start);
-        end.setDate(start.getDate() + medicine.duration);
+        end.setDate(start.getDate() + Number(medicine.duration));
 
         if (now >= start && now <= end) {
             medicine.times.forEach(time => {
                 const [hours, minutes] = time.split(':').map(Number);
-                const reminderTime = hours * 100 + minutes;
+                // ✅ FIX: compare in minutes, not *100 units
+                const reminderTime = hours * 60 + minutes;
 
                 if (Math.abs(currentTime - reminderTime) <= 1) {
                     new Notification(`Medicine Reminder: ${medicine.name}`, {
